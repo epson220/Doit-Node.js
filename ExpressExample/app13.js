@@ -28,7 +28,8 @@ app.use(expressSession({
     saveUninitialize: true
 }));
 
-app.use('/public',static(path.join(__dirname, 'public')));
+app.use('/public',static(path.join(__dirname, 'public'))); 
+
 app.use('/uploads', static(path.join(__dirname, 'uploads')));
 
 app.use(cors());
