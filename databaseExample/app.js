@@ -36,14 +36,32 @@ function connectDB() {
     database.on('open', function() {
         console.log('데이터베이스에 연결되었습니다. : ' + databaseUrl);
 
+        // UserSchema = mongoose.Schema({
+        //     id: String,
+        //     name: String,
+        //     password: String
+        // });
+
         UserSchema = mongoose.Schema({
-            id: String,
-            name: String,
-            password: String
+            id : {type:String, required:true, unique:true},
+            password : {type:String, required:true},
+            name : {type:String, index:'hashed'},
+            age : {type:Number, 'default':-1},
+            created_at : {type:Date, index:{unique:false}, 'default':Date.now},
+            updated_at : {type:Date, index:{unique:false}, 'default':Date.now}
         });
+
+        UserSchema.static('findById', function(id, callback){
+            return this.find({id:id}, callback);
+        });
+
+        UserSchema.static('findAll', function(callback){
+            return this.find({}, callback);
+        });
+
         console.log('UserSchema정의함.');
 
-        UserModel = mongoose.model("users", UserSchema);
+        UserModel = mongoose.model("users2", UserSchema);
         console.log('UserModel 정의함.');
     });
 
@@ -83,21 +101,45 @@ var authUser = function(database, id, password, callback) {
     //     }
     // });
 
-    UserModel.find({"id" : id, "password" : password}, function(err, results) {
-        if(err) {
+    // UserModel.find({"id" : id, "password" : password}, function(err, results) {
+    //     if(err) {
+    //         callback(err, null);
+    //         return;
+    //     }
+
+    //     console.log('아아디 [%s], 비밀번호 [%s]로 사용자 검색 결과', id, password);
+    //     console.dir(results);
+
+    //     if(results.length > 0){
+    //         console.log('일치하는 사용자 찾음.', id, password);
+    //         callback(null, results);
+    //     }
+    //     else {
+    //         console.log('일치하는 사용자를 찾지 못함.');
+    //         callback(null, null);
+    //     }
+    // });
+
+    UserModel.findById(id, function(err, results){
+        if(err){
             callback(err, null);
             return;
         }
-
-        console.log('아아디 [%s], 비밀번호 [%s]로 사용자 검색 결과', id, password);
+        console.log('아이디[%s]로 사용자 검색 결과', id);
         console.dir(results);
 
         if(results.length > 0){
-            console.log('일치하는 사용자 찾음.', id, password);
-            callback(null, results);
-        }
-        else {
-            console.log('일치하는 사용자를 찾지 못함.');
+            console.log('아이디와 일치하는 사용자 찾음.');
+
+            if(results[0]._doc.password = password) {
+                console.log('비밀번호 일치함.');
+                callback(null, results);
+            }else {
+                console.log('비밀번호 일치하지 않음.');
+                callback(null,null);
+            }
+        }else {
+            console.log('아이디와 일치하는 사용자를 찾지 못함.');
             callback(null, null);
         }
     });
@@ -222,6 +264,49 @@ router.route('/process/adduser').post(function(req, res){
             }
         });
     } else {
+        res.writeHead('200', {'Content-Type':'text/html;charset=utf8'});
+        res.write('<h2>데이터베이스 연결 실패</h2>');
+        res.end();
+    }
+});
+
+router.route('/process/listuser').post(function(req, res){
+    console.log('/process/listuser 호출됨.');
+
+    if(database) {
+        UserModel.findAll(function(err, results){
+            if(err) {
+                console.error('사용자 리스트 조회 중 오류 발생 : ' + err.stack);
+                res.writeHead('200', {'Content-Type':'text/html;charset=utf8'});
+                res.write('<h2>사용자 리스트 조회 중 오류 발생</h2>');
+                res.write('<p>'+err.stack+'</p>');
+                res.end();
+
+                return;
+            }
+
+            if(results) { //결과 객체 있으면 리시트 전송
+                console.dir(results);
+
+                res.writeHead('200', {'Content-Type':'text/html;charset=utf8'});
+                res.write('<h2>사용자 리스트 </h2>');
+                res.write('<div><ul>');
+
+                for(var i=0; i<results.length; i++){
+                    var curId = results[i]._doc.id;
+                    var curName = results[i]._doc.name;
+                    res.write('<li>#'+i+':'+curId+', '+curName+'</ii>');
+                }
+
+                res.write('</ul></div>');
+                res.end();
+            }else { //결과 객체가 없으면 실패 응답 전송
+                res.writeHead('200',{'Content-Type':'text/html;charset=utf8'});
+                res.write('<h2>사용자 리스트 조회 실패</h2>');
+                res.end();
+            }
+        });
+    }else {
         res.writeHead('200', {'Content-Type':'text/html;charset=utf8'});
         res.write('<h2>데이터베이스 연결 실패</h2>');
         res.end();
